@@ -46,6 +46,7 @@ sudo git clone https://github.com/h4m1dr/MTProMonitorbot-python
 ### 3️⃣ Make launcher executable and run it
 
 ```bash
+cd MTProMonitorbot-python
 sudo chmod +x main.sh
 sudo ./main.sh
 ```
