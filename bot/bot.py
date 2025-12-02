@@ -1,6 +1,4 @@
-# comments MUST be English only
 import math
-import secrets
 
 from telegram import (
     InlineKeyboardMarkup,
@@ -17,7 +15,7 @@ from telegram.ext import (
 from .config import Config
 from .db import Database
 from .mtproxy_manager import MtproxyManager
-from .utils import admin_only, is_authorized
+from .utils import admin_only, is_authorized  # assuming you already have these
 
 
 PAGE_SIZE = 6  # proxies per page
@@ -53,19 +51,19 @@ class MtproxyBotApp:
         page = max(0, min(page, pages - 1))
         offset = page * PAGE_SIZE
 
-        proxies = self.db.list_proxies_for_admin(admin_id, offset=offset, limit=PAGE_SIZE)
+        proxies = self.db.list_proxies_for_admin(
+            admin_id, offset=offset, limit=PAGE_SIZE
+        )
 
         rows = []
 
         # Up to 6 proxies, 2 rows of 3 buttons (or fewer if not enough)
-        # Each button is URL button with proxy link
         for i in range(0, len(proxies), 3):
             sub = proxies[i : i + 3]
             btn_row = []
             for p in sub:
                 proxy_id = p["id"]
                 label = p["label"]
-                # We cannot prebuild URL without secrets; build link from secret
                 proxy_link = self.mt.build_proxy_link(p["secret"])
                 btn_row.append(
                     InlineKeyboardButton(text=label, url=proxy_link)
@@ -75,7 +73,6 @@ class MtproxyBotApp:
         # Navigation row
         nav_row = []
         if pages > 1:
-            # previous / next with page encoded
             if page > 0:
                 nav_row.append(
                     InlineKeyboardButton(
@@ -101,33 +98,48 @@ class MtproxyBotApp:
 
     # ---------- handlers ----------
 
-    @admin_only_cfg := None  # placeholder, will be set after class definition
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = update.effective_user
-        assert user is not None
+        if user is None:
+            return
+
+        # Only owner/admins should be able to use the bot
+        if user.id not in self.cfg.allowed_admin_ids:
+            # Completely silent for unauthorized users
+            return
+
+        is_owner = user.id == self.cfg.owner_id
 
         # Ensure admin row exists
-        is_owner = user.id == self.cfg.owner_id
         self.db.ensure_admin(
             telegram_id=user.id,
             display_name=user.full_name,
             is_owner=is_owner,
         )
 
-        await update.message.reply_text(
-            "سلام 👋\n"
-            "به پنل مدیریت MTProto خوش اومدی.\n\n"
-            "از منوی زیر انتخاب کن:",
-            reply_markup=self.main_menu_keyboard(),
-        )
+        if update.message:
+            await update.message.reply_text(
+                "سلام 👋\n"
+                "به پنل مدیریت MTProto خوش اومدی.\n\n"
+                "از منوی زیر انتخاب کن:",
+                reply_markup=self.main_menu_keyboard(),
+            )
 
-    @admin_only_cfg
     async def handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         if not query:
             return
 
         user = query.from_user
+        if user is None:
+            await query.answer()
+            return
+
+        # Extra safety: only allow configured admins
+        if user.id not in self.cfg.allowed_admin_ids:
+            await query.answer()
+            return
+
         admin_row = self.db.get_admin_by_telegram(user.id)
         if not admin_row:
             await query.answer()
@@ -167,7 +179,6 @@ class MtproxyBotApp:
 
         if data == "menu_new_proxy":
             await query.answer()
-            # For simplicity: auto-generate secret and label
             await self.create_new_proxy_for_admin(query, admin_row)
             return
 
@@ -177,25 +188,24 @@ class MtproxyBotApp:
         admin_id = admin_row["id"]
         tag_prefix = admin_row["tag_prefix"]
 
-        # If admin has no tag yet, ask them to set one
         if not tag_prefix:
             await query.edit_message_text(
                 "هنوز برای خودت تگ تنظیم نکردی.\n"
                 "یک تگ بنویس (مثلاً hproxy یا zproxy):\n\n"
                 "بعد از این هر پروکسی با این تگ + شماره ساخته می‌شود."
             )
-            # You should set a flag in user_data to capture next message as tag;
-            # omitted here for brevity.
+            # Next-message handler for setting tag_prefix should be implemented.
             return
 
         # Generate secret and register in MTProxy
-        secret = self.mt.add_secret()  # generates if None
-        # Determine next index for this admin
+        secret = self.mt.add_secret()
         count = self.db.count_proxies_for_admin(admin_id)
         index = count + 1
         label = f"{tag_prefix} {index}"
 
-        proxy_id = self.db.create_proxy(admin_id=admin_id, label=label, secret=secret)
+        proxy_id = self.db.create_proxy(
+            admin_id=admin_id, label=label, secret=secret
+        )
         link = self.mt.build_proxy_link(secret)
 
         kb = InlineKeyboardMarkup(
@@ -213,14 +223,6 @@ class MtproxyBotApp:
         )
 
 
-# Fix decorator now that Config exists
-cfg_for_decorator = Config.from_env()
-
-
-def admin_only_cfg(func):
-    return admin_only(cfg_for_decorator)(func)
-
-
 def main():
     cfg = Config.from_env()
     if not cfg.bot_token or not cfg.owner_id:
@@ -230,8 +232,10 @@ def main():
 
     application = Application.builder().token(cfg.bot_token).build()
 
-    # Wrap handlers with admin_only via utils
-    application.add_handler(CommandHandler("start", admin_only(cfg)(app_logic.start)))
+    # Wrap handlers with admin_only utility
+    application.add_handler(
+        CommandHandler("start", admin_only(cfg)(app_logic.start))
+    )
     application.add_handler(
         CallbackQueryHandler(admin_only(cfg)(app_logic.handle_callback))
     )

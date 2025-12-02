@@ -1,4 +1,3 @@
-# comments MUST be English only
 import os
 import re
 import secrets
@@ -29,11 +28,14 @@ class MtproxyManager:
         self.cfg = cfg
 
     def _find_service_file(self) -> str:
+        # Use mtproxy_service_name from Config (matches MTPROXY_SERVICE_NAME)
         for base in SERVICE_PATHS:
-            path = os.path.join(base, f"{self.cfg.mtproxy_service}.service")
+            path = os.path.join(base, f"{self.cfg.mtproxy_service_name}.service")
             if os.path.isfile(path):
                 return path
-        raise FileNotFoundError(f"Service file for {self.cfg.mtproxy_service} not found")
+        raise FileNotFoundError(
+            f"Service file for {self.cfg.mtproxy_service_name} not found"
+        )
 
     def _read_service_file(self) -> str:
         path = self._find_service_file()
@@ -52,21 +54,22 @@ class MtproxyManager:
             raise RuntimeError("ExecStart not found in service file")
 
         exec_start = match.group(1)
-        secrets = re.findall(r"-S\s+([0-9a-fA-F]+)", exec_start)
+        secrets_found = re.findall(r"-S\s+([0-9a-fA-F]+)", exec_start)
 
-        port = self.cfg.mtproxy_default_port
+        # Default port comes from Config
+        port = self.cfg.mtproxy_port
         m_port = re.search(r"-H\s+(\d+)", exec_start)
         if m_port:
             port = int(m_port.group(1))
 
-        tls_domain = None
+        tls_domain: Optional[str] = self.cfg.mtproxy_tls_domain
         m_tls = re.search(r"-D\s+(\S+)", exec_start)
         if m_tls:
             tls_domain = m_tls.group(1)
 
         return MtproxyConfig(
             exec_start=exec_start,
-            secrets=secrets,
+            secrets=secrets_found,
             port=port,
             tls_domain=tls_domain,
         )
@@ -74,7 +77,6 @@ class MtproxyManager:
     def _build_exec_start(self, cfg: MtproxyConfig) -> str:
         # Remove existing -S flags
         exec_cmd = re.sub(r"-S\s+[0-9a-fA-F]+\s*", "", cfg.exec_start)
-        # Ensure single spaces
         exec_cmd = re.sub(r"\s+", " ", exec_cmd).strip()
         # Append all secrets
         for s in cfg.secrets:
@@ -93,7 +95,10 @@ class MtproxyManager:
 
     def restart_service(self) -> None:
         subprocess.run(["systemctl", "daemon-reload"], check=True)
-        subprocess.run(["systemctl", "restart", self.cfg.mtproxy_service], check=True)
+        subprocess.run(
+            ["systemctl", "restart", self.cfg.mtproxy_service_name],
+            check=True,
+        )
 
     def generate_secret(self) -> str:
         return secrets.token_hex(16)
@@ -142,4 +147,7 @@ class MtproxyManager:
         else:
             full_secret = "dd" + secret
 
-        return f"https://t.me/proxy?server={server_ip}&port={port}&secret={full_secret}"
+        return (
+            f"https://t.me/proxy?"
+            f"server={server_ip}&port={port}&secret={full_secret}"
+        )

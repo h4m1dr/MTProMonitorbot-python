@@ -1,7 +1,6 @@
-# comments MUST be English only
 import os
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 
 @dataclass
@@ -11,7 +10,8 @@ class Config:
     allowed_admin_ids: List[int]
     db_path: str
     mtproxy_service_name: str
-    mtproxy_config_path: str
+    mtproxy_port: int
+    mtproxy_tls_domain: Optional[str]
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -40,8 +40,18 @@ class Config:
             allowed_admin_ids.append(owner_id)
 
         db_path = os.getenv("DB_PATH", "./data/mtproxy-bot.db").strip()
-        mtproxy_service_name = os.getenv("MTPROXY_SERVICE_NAME", "MTProxy.service").strip()
-        mtproxy_config_path = os.getenv("MTPROXY_CONFIG_PATH", "/opt/MTProxy/objs/bin/mtconfig.conf").strip()
+
+        mtproxy_service_name = os.getenv(
+            "MTPROXY_SERVICE_NAME", "MTProxy"
+        ).strip()
+
+        port_str = os.getenv("MTPROXY_PORT", "443").strip()
+        if not port_str.isdigit():
+            raise RuntimeError("MTPROXY_PORT must be an integer")
+        mtproxy_port = int(port_str)
+
+        mtproxy_tls_domain_raw = os.getenv("MTPROXY_TLS_DOMAIN", "").strip()
+        mtproxy_tls_domain = mtproxy_tls_domain_raw or None
 
         return cls(
             bot_token=bot_token,
@@ -49,5 +59,6 @@ class Config:
             allowed_admin_ids=allowed_admin_ids,
             db_path=db_path,
             mtproxy_service_name=mtproxy_service_name,
-            mtproxy_config_path=mtproxy_config_path,
+            mtproxy_port=mtproxy_port,
+            mtproxy_tls_domain=mtproxy_tls_domain,
         )
