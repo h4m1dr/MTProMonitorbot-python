@@ -13,7 +13,7 @@ AUTO_EXEC_FILES=(
   "mtproxy.sh"
   "pybot.sh"
   "system.sh"
-  "setup_pybot.sh"
+  "scripts/setup_pybot.sh"
 )
 
 make_helpers_executable() {
@@ -113,7 +113,7 @@ menu_pybot_install() {
   print_header
   echo "=== Python MTProxy bot install/update ==="
   echo
-  echo "This will run setup_pybot.sh and (re)start the 'mtprobot' service."
+  echo "This will run scripts/setup_pybot.sh and (re)start the 'mtprobot' service."
   echo
   read -rp "Continue? [y/N]: " ans
   ans=${ans:-N}
@@ -160,8 +160,8 @@ menu_backup() {
   echo "=== Backup config and DB ==="
   echo
   echo "This will copy:"
-  echo "  - config.json"
-  echo "  - data/proxies.sqlite3"
+  echo "  - .env"
+  echo "  - data/mtproxy-bot.db"
   echo "into backups/ with timestamped filenames."
   echo
   read -rp "Continue? [y/N]: " ans
@@ -186,7 +186,7 @@ main_menu() {
     echo "5) Install/Update Python bot (mtprobot)"
     echo "6) Show Python bot status"
     echo "7) Logs (mtprobot / MTProxy)"
-    echo "8) Backup config + DB"
+    echo "8) Backup .env + DB"
     echo "0) Exit"
     echo
     read -rp "Select an option: " choice

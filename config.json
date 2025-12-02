@@ -1,8 +1,0 @@
-{
-  "bot_token": "",
-  "owner_ids": [],
-  "service_name": "MTProxy",
-  "db_path": "data/proxies.sqlite3",
-  "tls_domain": null,
-  "port": 443
-}

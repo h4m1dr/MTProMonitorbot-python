@@ -10,8 +10,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BOT_SERVICE_NAME="mtprobot"
 MT_SERVICE_NAME="MTProxy"
 
-CONFIG_FILE="$SCRIPT_DIR/config.json"
-DB_FILE="$SCRIPT_DIR/data/proxies.sqlite3"
+# Updated for .env + SQLite DB used by Python edition
+CONFIG_FILE="$SCRIPT_DIR/.env"
+DB_FILE="$SCRIPT_DIR/data/mtproxy-bot.db"
 BACKUP_DIR="$SCRIPT_DIR/backups"
 
 
@@ -38,22 +39,22 @@ backup_config_db() {
   local ts
   ts="$(date +%Y%m%d_%H%M%S)"
 
-  local cfg_backup="$BACKUP_DIR/config_${ts}.json"
-  local db_backup="$BACKUP_DIR/proxies_${ts}.sqlite3"
+  local cfg_backup="$BACKUP_DIR/env_${ts}.backup"
+  local db_backup="$BACKUP_DIR/mtproxy_bot_${ts}.db"
 
   echo "=== Creating backup ==="
   if [ -f "$CONFIG_FILE" ]; then
     cp "$CONFIG_FILE" "$cfg_backup"
-    echo "[*] Saved config backup: $cfg_backup"
+    echo "[*] Saved .env backup: $cfg_backup"
   else
-    echo "[!] $CONFIG_FILE not found; skipping."
+    echo "[!] $CONFIG_FILE not found; skipping .env backup."
   fi
 
   if [ -f "$DB_FILE" ]; then
     cp "$DB_FILE" "$db_backup"
     echo "[*] Saved DB backup: $db_backup"
   else
-    echo "[!] $DB_FILE not found; skipping."
+    echo "[!] $DB_FILE not found; skipping DB backup."
   fi
 }
 
@@ -74,7 +75,7 @@ Usage: $(basename "$0") <command>
 Commands:
   logs-bot       Show recent logs for mtprobot service.
   logs-mtproxy   Show recent logs for MTProxy service.
-  backup         Backup config.json and data/proxies.sqlite3 into backups/.
+  backup         Backup .env and data/mtproxy-bot.db into backups/.
   update-repo    If this directory is a git repo, run 'git pull --ff-only'.
 EOF
 }
