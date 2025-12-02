@@ -40,7 +40,7 @@ cd /opt/MTPro-Py
 Replace `YOUR_USERNAME/YOUR_REPO` with your repo:
 
 ```bash
-sudo git clone (https://github.com/h4m1dr/MTProMonitorbot-python) .
+sudo git clone https://github.com/h4m1dr/MTProMonitorbot-python
 ```
 
 ### 3️⃣ Make launcher executable and run it
